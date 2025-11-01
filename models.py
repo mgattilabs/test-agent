@@ -8,11 +8,10 @@ class PBI(BaseModel):
 
 class AgentResponse(BaseModel):
     action: str | None = None
-    pbi_list: list[PBI] | None = None
+    pbis: list[PBI] | None = None
 
 
 class Azdo(BaseModel):
-    organization: str
     project: str
 
 

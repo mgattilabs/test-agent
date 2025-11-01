@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class EnvironmentSettings(BaseSettings):
     gemini_api_key: str
     azdo_personal_access_token: str
+    azdo_organization: str
 
     class Config:
         env_file = ".env"
