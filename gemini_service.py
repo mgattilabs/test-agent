@@ -2,8 +2,6 @@ import dspy
 
 
 class GeminiService:
-    """Service helper to configure DSPy with Gemini."""
-
     lm: dspy.LM
 
     def __init__(self, api_key: str, model: str = "gemini/gemini-2.5-flash"):

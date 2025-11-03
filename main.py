@@ -5,11 +5,11 @@ from azure.devops.connection import Connection
 from azure.devops.v7_1.work_item_tracking.models import JsonPatchOperation
 from msrest.authentication import BasicAuthentication
 
-from azdo_agent import ExtractAzdoModule
+from azdo_module import ExtractAzdoModule
 from config import EnvironmentSettings
 from gemini_service import GeminiService
 from models import PBI, Azdo
-from pbi_processor import ExtractPBIModule
+from pbi_module import ExtractPBIModule
 
 basicConfig(level="INFO")
 logger = getLogger(__name__)
@@ -17,7 +17,7 @@ logger = getLogger(__name__)
 ORGANIZATION_BASE_URL = "https://dev.azure.com/"
 
 
-class AzdoAgent:
+class AzdoProjectHandler:
     def __init__(self):
         self.azdo_project: Azdo = None
         self.pbis: list[PBI] = []
@@ -29,11 +29,10 @@ class AzdoAgent:
         self.pbis = self.pbi_module(summary=summary)
 
     def process_pbi(self, summary: str):
-        self.pbis = self.pbiModule(summary=summary)
+        self.pbis = self.pbi_module(summary=summary)
 
     def process_azdo(self, summary: str):
-        self.azdo_project = self.azdoModule(summary=summary)
-
+        self.azdo_project = self.azdo_module(summary=summary)
 
 
 def process_backlog_items(logger, organization, azdo_agent, credentials):
@@ -50,10 +49,6 @@ def process_backlog_items(logger, organization, azdo_agent, credentials):
         wit_client = connection.clients.get_work_item_tracking_client()
         work_item_data = [
             JsonPatchOperation(op="add", path="/fields/System.Title", value=pbi.title),
-    wit_client = connection.clients.get_work_item_tracking_client()
-    for pbi in azdo_agent.pbis:
-        work_item_data = [
-            JsonPatchOperation(op="add", path="/fields/System.Title", value=pbi.title),
             JsonPatchOperation(
                 op="add", path="/fields/System.Description", value=pbi.description
             ),
@@ -64,32 +59,117 @@ def process_backlog_items(logger, organization, azdo_agent, credentials):
             type="Product Backlog Item",
             document=work_item_data,
         )
-    dspy.configure(lm=GeminiService(api_key=settings.gemini_api_key).lm)
+    logger.info("PBIs processed successfully.")
 
-    azdo_agent = AzdoAgent()
+
+def get_non_empty_input(prompt: str, max_retries: int = 3) -> str | None:
+    for attempt in range(max_retries):
+        try:
+            user_input = input(prompt).strip()
+            if user_input:
+                return user_input
+            remaining = max_retries - attempt - 1
+            if remaining > 0:
+                print(f"Input non valido. Riprova ({remaining} tentativi rimasti).")
+            else:
+                print("Troppi tentativi falliti.")
+                return None
+        except KeyboardInterrupt:
+            print("\nOperazione annullata dall'utente.")
+            return None
+        except Exception as e:
+            logger.error(f"Errore durante l'input: {e}")
+            print(f"Errore durante l'input: {e}")
+            return None
+    return None
+
+
+if __name__ == "__main__":
+    try:
+        settings = EnvironmentSettings()
+        dspy.configure(lm=GeminiService(api_key=settings.gemini_api_key).lm)
+    except Exception as e:
+        logger.error(f"Errore nella configurazione iniziale: {e}")
+        print(f"Errore nella configurazione: {e}")
+        exit(1)
+
+    azdo_agent = AzdoProjectHandler()
     credentials = BasicAuthentication("", settings.azdo_personal_access_token)
 
     while True:
-        print("Inserisci il sommario per estrarre i pbi e i dettagli di Azure DevOps:")
-        summary = input()
-        azdo_agent.process_flow(summary=summary)
+        try:
+            summary = get_non_empty_input(
+                "Inserisci il sommario per estrarre i PBI e i dettagli di Azure DevOps:\n> "
+            )
+            if summary is None:
+                continue
 
-        if len(azdo_agent.pbis) == 0:
-            print("Nessun PBI estratto. Inserisci il sommario dei PBI:")
-            summary_pbi = input()
-            azdo_agent.process_pbi(summary=summary_pbi)
+            try:
+                azdo_agent.process_flow(summary=summary)
+                logger.info("Elaborazione iniziale completata.")
+            except Exception as e:
+                logger.error(f"Errore nell'elaborazione del flusso: {e}")
+                print(f"Errore nell'elaborazione: {e}")
+                print("Riprovare con un altro sommario.")
+                continue
 
-        if azdo_agent.azdo_project is None:
-            print("inserisci progetto di Azure DevOps")
-            summary_azdo = input()
-            azdo_agent.process_azdo(summary=summary_azdo)
+            if len(azdo_agent.pbis) == 0:
+                print("Nessun PBI estratto.")
+                summary_pbi = get_non_empty_input("Inserisci il sommario dei PBI:\n> ")
+                if summary_pbi is not None:
+                    try:
+                        azdo_agent.process_pbi(summary=summary_pbi)
+                        logger.info("Elaborazione PBI completata.")
+                    except Exception as e:
+                        logger.error(f"Errore nell'estrazione dei PBI: {e}")
+                        print(f"Errore nell'estrazione dei PBI: {e}")
+                        continue
 
-        process_backlog_items(
-            logger, settings.azdo_organization, azdo_agent, credentials
-        )
+            if azdo_agent.azdo_project is None:
+                summary_azdo = get_non_empty_input(
+                    "Inserisci il progetto di Azure DevOps:\n> "
+                )
+                if summary_azdo is not None:
+                    try:
+                        azdo_agent.process_azdo(summary=summary_azdo)
+                        logger.info("Elaborazione progetto Azure DevOps completata.")
+                    except Exception as e:
+                        logger.error(f"Errore nell'estrazione del progetto: {e}")
+                        print(f"Errore nell'estrazione del progetto: {e}")
+                        continue
 
-        exit_input = input(
-            "Vuoi uscire? (scrivi 'exit' per uscire, premi invio per continuare): "
-        )
-        if exit_input.lower() == "exit":
+            if len(azdo_agent.pbis) == 0:
+                print("Impossibile continuare: nessun PBI disponibile.")
+                continue
+
+            if azdo_agent.azdo_project is None:
+                print(
+                    "Impossibile continuare: nessun progetto Azure DevOps disponibile."
+                )
+                continue
+
+            try:
+                process_backlog_items(
+                    logger, settings.azdo_organization, azdo_agent, credentials
+                )
+            except Exception as e:
+                logger.error(f"Errore nell'elaborazione dei backlog items: {e}")
+                print(f"Errore nell'elaborazione dei backlog items: {e}")
+                continue
+
+            exit_input = get_non_empty_input(
+                "Vuoi uscire? (scrivi 'exit' per uscire, premi invio per continuare):\n> "
+            )
+            if exit_input and exit_input.lower() == "exit":
+                logger.info("Applicazione terminata dall'utente.")
+                print("Arrivederci!")
+                break
+
+        except KeyboardInterrupt:
+            print("\nApplicazione interrotta.")
+            logger.info("Applicazione interrotta dall'utente.")
             break
+        except Exception as e:
+            logger.error(f"Errore inaspettato nel ciclo principale: {e}")
+            print(f"Errore inaspettato: {e}")
+            print("Riprova da capo.")
