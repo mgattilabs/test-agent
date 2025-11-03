@@ -343,7 +343,7 @@ async def reset_handler() -> dict:
 
 
 def main():
-    """Avvia il server FastMCP in modalità stdio."""
+    """Avvia il server FastMCP"""
     logger.info("Avvio server FastMCP azdo-handler...")
     mcp.run(transport="http", host="0.0.0.0", port=8080)
 
