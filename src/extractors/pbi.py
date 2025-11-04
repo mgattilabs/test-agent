@@ -9,7 +9,9 @@ class ExtractPBIsSignature(dspy.Signature):
             "Riassunto della discussione da cui estrarre Product Backlog Items (PBI). "
         )
     )
-    pbi_list: list[PBI] = dspy.OutputField()
+    pbi_list: list[PBI] = dspy.OutputField(
+        desc="Lista di PBI estratti dal sommario. Se il pbi è troppo generico spezzalo in più pbi specifici."
+    )
 
 
 class ExtractPBIModule(dspy.Module):

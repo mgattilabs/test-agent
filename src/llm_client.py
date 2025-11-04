@@ -18,4 +18,5 @@ class GeminiService:
             self.model,
             api_key=self.api_key,
             cache=False,
+            max_tokens=24000,
         )

@@ -1,11 +1,11 @@
-from logging import getLogger
+import logging
 
 import dspy
 
-from config import EnvironmentSettings
+from config import settings
 from models import Azdo
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ExtractAzdoSignature(dspy.Signature):
@@ -50,7 +50,7 @@ class ExtractAzdoModule(dspy.Module):
 
 
 if __name__ == "__main__":
-    settings = EnvironmentSettings()
+    settings = settings.EnvironmentSettings()
     azdo_module = ExtractAzdoModule()
     summary_input = "Project: SampleProject"
     azdo_info = azdo_module.forward(summary=summary_input)
