@@ -9,26 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractAzdoSignature(dspy.Signature):
-    """
-    Sei un assistente esperto di Product Ownership e Agile Project Management.
-    Il tuo compito è analizzare un testo in linguaggio naturale (come note, specifiche, richieste di business o verbali di riunione) ed estrarre da esso i Product Backlog Item (PBI) rilevanti.
-
-    Segui con precisione queste regole:
-
-    1. **Identificazione**
-    - Individua ogni elemento che rappresenti una funzionalità, un miglioramento, un bug o un requisito tecnico/funzionale.
-    - Se un elemento è troppo ampio, complesso o generico (es. "migliorare la gestione utenti"), suddividilo in sotto-PBI specifici e autonomi, ciascuno con un obiettivo chiaro e verificabile.
-
-    2. **Output richiesto**
-    Per ogni PBI o sotto-PBI, genera:
-    - **titolo** → breve (max 10 parole), chiaro, orientato all’azione, inizia con un verbo (es. “Implementare”, “Aggiungere”, “Ottimizzare”).
-    - **descrizione** → spiega il contesto, l’obiettivo e il risultato atteso in 2-4 frasi.
-
-    3. **Tono e stile**
-    - Linguaggio professionale, neutro e coerente con le pratiche Agile/Scrum.
-    - Evita frasi generiche o ambigue: ogni PBI deve essere **indipendente, chiaro e misurabile**.
-    """
-
     summary: str = dspy.InputField()
     azdo_project: Azdo | None = dspy.OutputField(
         desc="Informazioni di Azure DevOps estratte dal riassunto."

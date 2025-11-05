@@ -12,9 +12,8 @@ from src.extractors.azdo import ExtractAzdoModule
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Engage Azdo Agent")
-
 request_log = []
+mcp = FastMCP(name="azdo-server")
 
 
 def _log_request(
@@ -43,22 +42,6 @@ def _log_request(
     }
     request_log.append(log_entry)
     logger.info(f"Request logged: {log_entry}")
-
-
-def _format_pbis_as_table(pbis: list[PBI]) -> str:
-    if not pbis:
-        return "Nessun PBI estratto."
-
-    # Header della tabella
-    table = "| # | Title | Description |\n"
-    table += "|---|-------|-------------|\n"
-
-    for i, pbi in enumerate(pbis, 1):
-        title = pbi.title.replace("|", "\\|")
-        description = pbi.description.replace("|", "\\|")
-        table += f"| {i} | {title} | {description} |\n"
-
-    return table
 
 
 @mcp.tool()
@@ -101,17 +84,10 @@ def process_azdo_summary(summary: str) -> str:
         raise e
 
 
-@mcp.tool()
-def save_pbis_to_azdo() -> None:
-    envSettings = settings.EnvironmentSettings()
-
-    try:
-        logger.info(f"Saved {len(pbis)} PBIs to Azure DevOps project '{project}'")
-    except Exception as e:
-        logger.error(f"Failed to save PBIs to Azure DevOps: {e}", exc_info=True)
+def main():
+    logger.info("Starting MCP server...")
+    mcp.run()
 
 
 if __name__ == "__main__":
-    logger.info("Starting MCP server...")
-
-    mcp.run()
+    main()

@@ -40,4 +40,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-CMD ["fastmcp", "run", "src/main.py:mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["fastmcp", "run", "src/server_mcp.py:mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
