@@ -1,10 +1,10 @@
-# Chat Session Management
+# Chat Session Management - REST API
 
-Questa funzionalità permette di gestire conversazioni interattive per l'estrazione di PBI e progetti Azure DevOps.
+Questa funzionalità permette di gestire conversazioni interattive per l'estrazione di PBI e progetti Azure DevOps tramite REST API.
 
 ## Funzionalità
 
-Il sistema supporta ora la gestione di sessioni di chat in memoria con le seguenti capacità:
+Il sistema supporta la gestione di sessioni di chat in memoria con le seguenti capacità:
 
 - ✅ Creazione di nuove sessioni di chat
 - ✅ Aggiunta di messaggi a sessioni esistenti
@@ -14,102 +14,147 @@ Il sistema supporta ora la gestione di sessioni di chat in memoria con le seguen
 - ✅ Elaborazione di conversazioni per estrarre PBI e progetti
 - ✅ Supporto per conversazioni interattive con domande e risposte
 
-## Strumenti MCP Disponibili
+## Endpoint API Disponibili
 
-### 1. `create_chat_session()`
+### 1. `POST /chat/sessions`
 Crea una nuova sessione di chat.
 
-**Ritorna:** ID della nuova sessione creata
-
-**Esempio:**
+**Risposta:**
+```json
+{
+  "chat_id": "a1b2c3d4-5678-90ef-ghij-klmnopqrstuv",
+  "message": "Sessione di chat creata con ID: a1b2c3d4-5678-90ef-ghij-klmnopqrstuv"
+}
 ```
-Sessione di chat creata con ID: a1b2c3d4-5678-90ef-ghij-klmnopqrstuv
+
+**Esempio curl:**
+```bash
+curl -X POST http://localhost:8000/chat/sessions
 ```
 
-### 2. `add_message_to_chat(chat_id, role, content)`
+### 2. `POST /chat/sessions/{chat_id}/messages`
 Aggiunge un messaggio a una sessione esistente.
 
+**Body:**
+```json
+{
+  "role": "user",
+  "content": "Voglio creare dei PBI per il progetto WebApp"
+}
+```
+
 **Parametri:**
-- `chat_id`: ID della sessione di chat
 - `role`: Ruolo del mittente (`user`, `assistant`, `system`)
 - `content`: Contenuto del messaggio
 
-**Esempio:**
-```python
-add_message_to_chat(
-    chat_id="a1b2c3d4-5678-90ef-ghij-klmnopqrstuv",
-    role="user",
-    content="Voglio creare dei PBI per il progetto WebApp"
-)
+**Esempio curl:**
+```bash
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+  -H "Content-Type: application/json" \
+  -d '{"role": "user", "content": "Voglio creare dei PBI per il progetto WebApp"}'
 ```
 
-### 3. `list_chat_sessions()`
+### 3. `GET /chat/sessions`
 Elenca tutte le sessioni di chat attive con informazioni riassuntive.
 
-**Ritorna:** Lista di sessioni con dettagli (ID, numero messaggi, progetto, PBI, status, data creazione)
+**Risposta:** Array di oggetti `ChatSessionSummary`
 
-### 4. `get_chat_session(chat_id)`
+**Esempio curl:**
+```bash
+curl http://localhost:8000/chat/sessions
+```
+
+### 4. `GET /chat/sessions/{chat_id}`
 Recupera i dettagli completi di una sessione specifica, inclusa la cronologia messaggi.
 
-**Parametri:**
-- `chat_id`: ID della sessione di chat
+**Risposta:** Oggetto `ChatSession` completo
 
-**Ritorna:** Dettagli completi della sessione con tutti i messaggi
+**Esempio curl:**
+```bash
+curl http://localhost:8000/chat/sessions/{chat_id}
+```
 
-### 5. `delete_chat_session(chat_id)`
+### 5. `DELETE /chat/sessions/{chat_id}`
 Elimina una sessione di chat.
 
-**Parametri:**
-- `chat_id`: ID della sessione da eliminare
+**Risposta:**
+```json
+{
+  "message": "Sessione di chat {chat_id} eliminata con successo."
+}
+```
 
-**Ritorna:** Conferma dell'eliminazione
+**Esempio curl:**
+```bash
+curl -X DELETE http://localhost:8000/chat/sessions/{chat_id}
+```
 
-### 6. `process_chat_session(chat_id, create_pbis=True)`
+### 6. `POST /chat/sessions/{chat_id}/process`
 Elabora la cronologia di una chat per estrarre PBI e progetto Azure DevOps.
 
+**Body:**
+```json
+{
+  "create_pbis": true
+}
+```
+
 **Parametri:**
-- `chat_id`: ID della sessione da elaborare
-- `create_pbis`: Se `True`, crea i PBI in Azure DevOps (default: `True`)
+- `create_pbis`: Se `true`, crea i PBI in Azure DevOps (default: `true`)
 
-**Ritorna:** Risultato dell'elaborazione con dettagli sui PBI estratti
+**Risposta:**
+```json
+{
+  "message": "Elaborazione completata per chat {chat_id}. Estratti e creati N PBI nel progetto 'ProjectName'."
+}
+```
 
-**Esempio:**
-```python
-process_chat_session(
-    chat_id="a1b2c3d4-5678-90ef-ghij-klmnopqrstuv",
-    create_pbis=True
-)
+**Esempio curl:**
+```bash
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/process \
+  -H "Content-Type: application/json" \
+  -d '{"create_pbis": true}'
 ```
 
 ## Flusso di Lavoro Tipico
 
 1. **Crea una nuova sessione:**
-   ```
-   create_chat_session()
-   → Restituisce: chat_id
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions
+   # → Restituisce: {"chat_id": "...", "message": "..."}
    ```
 
 2. **Aggiungi messaggi alla conversazione:**
-   ```
-   add_message_to_chat(chat_id, "user", "Voglio creare PBI per progetto X")
-   add_message_to_chat(chat_id, "assistant", "Che funzionalità vuoi implementare?")
-   add_message_to_chat(chat_id, "user", "Sistema di login e dashboard")
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+     -H "Content-Type: application/json" \
+     -d '{"role": "user", "content": "Voglio creare PBI per progetto X"}'
+   
+   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+     -H "Content-Type: application/json" \
+     -d '{"role": "assistant", "content": "Che funzionalità vuoi implementare?"}'
+   
+   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+     -H "Content-Type: application/json" \
+     -d '{"role": "user", "content": "Sistema di login e dashboard"}'
    ```
 
 3. **Visualizza la conversazione:**
-   ```
-   get_chat_session(chat_id)
+   ```bash
+   curl http://localhost:8000/chat/sessions/{chat_id}
    ```
 
 4. **Elabora la conversazione:**
-   ```
-   process_chat_session(chat_id, create_pbis=True)
-   → Estrae PBI dalla conversazione e li crea in Azure DevOps
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/process \
+     -H "Content-Type: application/json" \
+     -d '{"create_pbis": true}'
+   # → Estrae PBI dalla conversazione e li crea in Azure DevOps
    ```
 
 5. **Opzionale - Elimina la sessione:**
-   ```
-   delete_chat_session(chat_id)
+   ```bash
+   curl -X DELETE http://localhost:8000/chat/sessions/{chat_id}
    ```
 
 ## Modelli Dati
@@ -135,10 +180,24 @@ process_chat_session(
 - La conversazione completa viene analizzata durante l'elaborazione
 - Il sistema supporta conversazioni in italiano con risposte naturali
 
-## Funzione Legacy
+## Endpoint Legacy
 
-### `process_azdo_summary(summary)`
-La funzione originale è ancora disponibile per l'elaborazione diretta di riassunti senza gestione di sessioni.
+### `POST /pbi-creator`
+L'endpoint originale è ancora disponibile per l'elaborazione diretta di riassunti senza gestione di sessioni.
+
+**Body:**
+```json
+{
+  "summary": "Riassunto completo del progetto con tutti i requisiti..."
+}
+```
+
+**Esempio curl:**
+```bash
+curl -X POST http://localhost:8000/pbi-creator \
+  -H "Content-Type: application/json" \
+  -d '{"summary": "Progetto WebApp: implementare login, dashboard e gestione utenti"}'
+```
 
 **Quando usare:**
 - Per elaborazioni one-shot senza conversazione interattiva

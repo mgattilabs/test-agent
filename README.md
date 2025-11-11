@@ -7,16 +7,15 @@ Sistema AI-powered per l'estrazione di Product Backlog Items (PBI) da riassunti 
 - 🤖 **Estrazione AI**: Utilizza DSPy e Google Gemini per estrarre PBI da conversazioni naturali
 - 💬 **Chat Sessions**: Gestione di conversazioni interattive per raccogliere requisiti
 - 📝 **PBI Generation**: Creazione automatica di PBI strutturati in Azure DevOps
-- 🔄 **MCP Server**: Espone funzionalità tramite Model Context Protocol
 - 🚀 **REST API**: Endpoint HTTP per integrazione con altri sistemi
 
 ## Architettura
 
-Il sistema ha due punti di ingresso:
-- **MCP Server** (`src/server_mcp.py`): Servizio FastMCP per integrazione AI
-- **REST API** (`src/server_api.py`): Endpoint FastAPI per accesso HTTP
-
-Entrambi utilizzano la stessa pipeline di estrazione tramite moduli DSPy.
+Il sistema espone una REST API FastAPI (`src/server_api.py`) che offre:
+- Gestione completa di sessioni di chat
+- Estrazione di PBI da conversazioni multi-turno
+- Creazione automatica in Azure DevOps
+- Pipeline di estrazione tramite moduli DSPy
 
 ## Installazione
 
@@ -49,10 +48,14 @@ AZDO_ORGANIZATION=your_organization_name
 
 ## Utilizzo
 
-### Avvio MCP Server
+### Avvio Server API
 
 ```bash
-fastmcp run src/server_mcp.py:mcp --transport http --host 0.0.0.0 --port 8000
+# Development
+uvicorn src.server_api:app --reload --host 0.0.0.0 --port 8000
+
+# Production
+uvicorn src.server_api:app --host 0.0.0.0 --port 8000
 ```
 
 ### Docker
@@ -68,40 +71,46 @@ docker run -e GEMINI_API_KEY=... \
            -p 8000:8000 dspy-test
 ```
 
+Accesso alla documentazione API: `http://localhost:8000/docs`
+
 ## Funzionalità
 
-### 1. Chat Session Management (NEW)
+### 1. Chat Session Management
 
-Gestione di conversazioni interattive per l'estrazione di PBI. Vedi [CHAT_SESSIONS.md](CHAT_SESSIONS.md) per dettagli completi.
+Gestione di conversazioni interattive per l'estrazione di PBI tramite REST API. Vedi [CHAT_SESSIONS.md](CHAT_SESSIONS.md) per dettagli completi.
 
-**Strumenti disponibili:**
-- `create_chat_session()` - Crea nuova conversazione
-- `add_message_to_chat()` - Aggiungi messaggio alla chat
-- `list_chat_sessions()` - Elenca tutte le chat
-- `get_chat_session()` - Dettagli sessione specifica
-- `delete_chat_session()` - Elimina sessione
-- `process_chat_session()` - Estrai PBI dalla conversazione
+**Endpoint disponibili:**
+- `POST /chat/sessions` - Crea nuova sessione
+- `GET /chat/sessions` - Elenca tutte le sessioni
+- `GET /chat/sessions/{chat_id}` - Dettagli sessione specifica
+- `POST /chat/sessions/{chat_id}/messages` - Aggiungi messaggio
+- `DELETE /chat/sessions/{chat_id}` - Elimina sessione
+- `POST /chat/sessions/{chat_id}/process` - Estrai PBI dalla conversazione
 
-**Esempio di utilizzo:**
-```python
+**Esempio di utilizzo (curl):**
+```bash
 # 1. Crea sessione
-chat_id = create_chat_session()
+curl -X POST http://localhost:8000/chat/sessions
 
 # 2. Aggiungi messaggi
-add_message_to_chat(chat_id, "user", "Voglio creare PBI per progetto WebApp")
-add_message_to_chat(chat_id, "assistant", "Quali funzionalità vuoi implementare?")
-add_message_to_chat(chat_id, "user", "Sistema login e dashboard vendite")
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+  -H "Content-Type: application/json" \
+  -d '{"role": "user", "content": "Voglio creare PBI per progetto WebApp"}'
 
-# 3. Elabora conversazione ed estrai PBI
-process_chat_session(chat_id, create_pbis=True)
+# 3. Elabora conversazione
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/process \
+  -H "Content-Type: application/json" \
+  -d '{"create_pbis": true}'
 ```
 
 ### 2. Direct Summary Processing
 
 Elaborazione diretta di riassunti per estrazione veloce:
 
-```python
-process_azdo_summary("Riassunto del progetto...")
+```bash
+curl -X POST http://localhost:8000/pbi-creator \
+  -H "Content-Type: application/json" \
+  -d '{"summary": "Riassunto del progetto..."}'
 ```
 
 ## Struttura del Progetto
@@ -109,9 +118,8 @@ process_azdo_summary("Riassunto del progetto...")
 ```
 dspy-test/
 ├── src/
-│   ├── server_mcp.py          # MCP server con chat management
-│   ├── server_api.py          # REST API
-│   ├── chat_manager.py        # Gestione sessioni chat (NEW)
+│   ├── server_api.py          # REST API FastAPI con chat management
+│   ├── chat_manager.py        # Gestione sessioni chat
 │   ├── models.py              # Modelli Pydantic (inclusi chat models)
 │   ├── llm_client.py          # Client Gemini/DSPy
 │   ├── azdo_client.py         # Client Azure DevOps
