@@ -6,23 +6,23 @@ All dependencies are clearly defined and injected.
 
 from functools import lru_cache
 
-from config.settings import EnvironmentSettings
-from domain.repositories import ChatSessionRepository
-from domain.services import (
+from src.config.settings import EnvironmentSettings
+from src.domain.repositories import ChatSessionRepository
+from src.domain.services import (
     AzureDevOpsService,
     PBIExtractionService,
     ProjectExtractionService,
 )
-from infrastructure.repositories.in_memory_chat_repository import (
+from src.infrastructure.repositories.in_memory_chat_repository import (
     InMemoryChatRepository,
 )
-from infrastructure.services.azdo_service import AzureDevOpsServiceImpl
-from infrastructure.services.dspy_extraction_service import (
+from src.infrastructure.services.azdo_service import AzureDevOpsServiceImpl
+from src.infrastructure.services.dspy_extraction_service import (
     DSPyPBIExtractionService,
     DSPyProjectExtractionService,
 )
-from llm_client import GeminiService
-from use_cases.chat_session_use_cases import (
+from src.llm_client import GeminiService
+from src.use_cases.chat_session_use_cases import (
     AddMessageUseCase,
     ConfirmPBICreationUseCase,
     CreateChatSessionUseCase,

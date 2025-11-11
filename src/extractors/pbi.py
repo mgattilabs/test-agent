@@ -1,6 +1,6 @@
 import dspy
 
-from models import PBI
+from src.models import PBI
 
 
 class ExtractPBIsSignature(dspy.Signature):

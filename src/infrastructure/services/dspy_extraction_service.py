@@ -2,10 +2,10 @@
 
 import logging
 
-from domain.entities import PBI
-from domain.services import PBIExtractionService, ProjectExtractionService
-from extractors import ExtractPBIModule
-from extractors.azdo import ExtractAzdoModule
+from src.domain.entities import PBI
+from src.domain.services import PBIExtractionService, ProjectExtractionService
+from src.extractors import ExtractPBIModule
+from src.extractors.azdo import ExtractAzdoModule
 
 logger = logging.getLogger(__name__)
 

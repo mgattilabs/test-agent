@@ -4,9 +4,9 @@ import logging
 from dataclasses import dataclass
 from uuid import UUID
 
-from domain.entities import ChatSession, MessageRole, SessionStatus
-from domain.repositories import ChatSessionRepository
-from domain.services import (
+from src.domain.entities import ChatSession, MessageRole, SessionStatus
+from src.domain.repositories import ChatSessionRepository
+from src.domain.services import (
     AzureDevOpsService,
     PBIExtractionService,
     ProjectExtractionService,

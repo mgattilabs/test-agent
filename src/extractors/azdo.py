@@ -2,8 +2,8 @@ import logging
 
 import dspy
 
-from config import settings
-from models import Azdo
+from src.config import settings
+from src.models import Azdo
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,13 @@ class ExtractAzdoModule(dspy.Module):
         super().__init__()
         self.program = dspy.ChainOfThought(ExtractAzdoSignature)
 
-    def forward(self, summary: str) -> Azdo | None:
+    def forward(self, summary: str) -> str | None:
         result = self.program(summary=summary)
         logger.info(f"Extracted Azure DevOps project: {result.azdo_project}")
         if result.azdo_project is None:
             return None
 
-        return result.azdo_project
+        return result.azdo_project.project
 
 
 if __name__ == "__main__":

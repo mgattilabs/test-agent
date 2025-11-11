@@ -40,4 +40,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.server_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.server_api_v2:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -4,8 +4,8 @@ from azure.devops.connection import Connection
 from azure.devops.v7_1.work_item_tracking.models import JsonPatchOperation
 from msrest.authentication import BasicAuthentication
 
-from config import settings
-from models import PBI
+from src.config import settings
+from src.models import PBI
 
 logger = logging.getLogger(__name__)
 

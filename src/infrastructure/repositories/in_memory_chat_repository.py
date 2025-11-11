@@ -3,8 +3,8 @@
 import logging
 from uuid import UUID
 
-from domain.entities import ChatSession
-from domain.repositories import ChatSessionRepository
+from src.domain.entities import ChatSession
+from src.domain.repositories import ChatSessionRepository
 
 logger = logging.getLogger(__name__)
 

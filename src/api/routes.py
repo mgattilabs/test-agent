@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import (
+from src.api.dependencies import (
     get_add_message_use_case,
     get_confirm_pbi_use_case,
     get_create_session_use_case,
@@ -13,7 +13,7 @@ from api.dependencies import (
     get_get_session_use_case,
     get_list_sessions_use_case,
 )
-from api.dtos import (
+from src.api.dtos import (
     AddMessageRequest,
     AddMessageResponse,
     ChatSessionDetailResponse,
@@ -22,12 +22,12 @@ from api.dtos import (
     ConfirmPBIRequest,
     MessageResponse,
 )
-from api.mappers import (
+from src.api.mappers import (
     to_chat_session_detail_response,
     to_chat_session_summary_response,
 )
-from domain.entities import MessageRole
-from use_cases.chat_session_use_cases import (
+from src.domain.entities import MessageRole
+from src.use_cases.chat_session_use_cases import (
     AddMessageUseCase,
     ConfirmPBICreationUseCase,
     CreateChatSessionUseCase,

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from domain.entities import PBI
+from src.domain.entities import PBI
 
 
 class PBIExtractionService(ABC):

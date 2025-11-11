@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from domain.entities import ChatSession
+from src.domain.entities import ChatSession
 
 
 class ChatSessionRepository(ABC):

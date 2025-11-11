@@ -1,12 +1,12 @@
 """Mappers to convert between domain entities and API DTOs."""
 
-from domain.entities import ChatSession
-from api.dtos import (
+from src.api.dtos import (
+    ChatMessageResponse,
     ChatSessionDetailResponse,
     ChatSessionSummaryResponse,
     PBIResponse,
-    ChatMessageResponse,
 )
+from src.domain.entities import ChatSession
 
 
 def to_chat_session_detail_response(session: ChatSession) -> ChatSessionDetailResponse:
