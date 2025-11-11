@@ -1,5 +1,7 @@
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
@@ -42,7 +44,7 @@ class ChatMessage(BaseModel):
 class ChatSession(BaseModel):
     """Chat session containing conversation history"""
 
-    chat_id: str
+    chat_id: UUID
     messages: list[ChatMessage] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -55,7 +57,7 @@ class ChatSession(BaseModel):
 class ChatSessionSummary(BaseModel):
     """Summary information about a chat session"""
 
-    chat_id: str
+    chat_id: UUID
     message_count: int
     created_at: datetime
     updated_at: datetime

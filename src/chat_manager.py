@@ -1,6 +1,6 @@
 import logging
-import uuid
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from models import ChatMessage, ChatSession, ChatSessionSummary, MessageRole
 
@@ -11,22 +11,22 @@ class ChatManager:
     """Manages in-memory chat sessions"""
 
     def __init__(self):
-        self.sessions: dict[str, ChatSession] = {}
+        self.sessions: dict[UUID, ChatSession] = {}
 
     def create_session(self) -> ChatSession:
         """Create a new chat session"""
-        chat_id = str(uuid.uuid4())
+        chat_id = uuid4()
         session = ChatSession(chat_id=chat_id)
         self.sessions[chat_id] = session
         logger.info(f"Created chat session: {chat_id}")
         return session
 
-    def get_session(self, chat_id: str) -> ChatSession | None:
+    def get_session(self, chat_id: UUID) -> ChatSession | None:
         """Get a chat session by ID"""
         return self.sessions.get(chat_id)
 
     def add_message(
-        self, chat_id: str, role: MessageRole, content: str
+        self, chat_id: UUID, role: MessageRole, content: str
     ) -> ChatMessage | None:
         """Add a message to a chat session"""
         session = self.get_session(chat_id)
@@ -40,7 +40,7 @@ class ChatManager:
         logger.info(f"Added message to chat {chat_id}: {role.value}")
         return message
 
-    def delete_session(self, chat_id: str) -> bool:
+    def delete_session(self, chat_id: UUID) -> bool:
         """Delete a chat session"""
         if chat_id in self.sessions:
             del self.sessions[chat_id]
@@ -65,7 +65,7 @@ class ChatManager:
             summaries.append(summary)
         return summaries
 
-    def get_conversation_history(self, chat_id: str) -> str:
+    def get_conversation_history(self, chat_id: UUID) -> str:
         """Get formatted conversation history for a chat session"""
         session = self.get_session(chat_id)
         if not session:
@@ -78,7 +78,7 @@ class ChatManager:
         return "\n".join(history_lines)
 
     def update_session_extraction(
-        self, chat_id: str, project: str | None, pbis: list
+        self, chat_id: UUID, project: str | None, pbis: list
     ) -> bool:
         """Update session with extracted project and PBIs"""
         session = self.get_session(chat_id)
@@ -93,7 +93,7 @@ class ChatManager:
         )
         return True
 
-    def update_session_status(self, chat_id: str, status: str) -> bool:
+    def update_session_status(self, chat_id: UUID, status: str) -> bool:
         """Update the status of a chat session"""
         session = self.get_session(chat_id)
         if not session:

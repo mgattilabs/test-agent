@@ -1,7 +1,7 @@
 import http
 import logging
-import uuid
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -51,7 +51,7 @@ def _log_request(
     logger.info(f"Request logged: {log_entry}")
 
 
-def _analyze_conversation(chat_id: str) -> tuple[str | None, list[PBI], str]:
+def _analyze_conversation(chat_id: UUID) -> tuple[str | None, list[PBI], str]:
     """
     Analyze conversation to extract project and PBIs, and determine next action.
 
@@ -66,7 +66,7 @@ def _analyze_conversation(chat_id: str) -> tuple[str | None, list[PBI], str]:
     conversation = chat_manager.get_conversation_history(chat_id)
 
     # Try to extract project and PBIs
-    request_id = str(uuid.uuid4())[:8]
+    request_id = str(uuid4())[:8]
     pbi_extractor = ExtractPBIModule()
     azdo_extractor = ExtractAzdoModule()
     pbi_extractor.set_lm(gemini_service.lm)
@@ -135,7 +135,7 @@ class MessageResponse(BaseModel):
 
 
 class ChatSessionResponse(BaseModel):
-    chat_id: str
+    chat_id: UUID
     message: str
 
 
@@ -170,7 +170,7 @@ async def pbi_creator(
     Legacy endpoint for direct PBI extraction from summary.
     For interactive conversations, use the chat session endpoints.
     """
-    request_id = str(uuid.uuid4())[:8]
+    request_id = str(uuid4())[:8]
     pbi_extractor = ExtractPBIModule()
     azdo_extractor = ExtractAzdoModule()
     pbi_extractor.set_lm(gemini_service.lm)
@@ -238,7 +238,7 @@ async def list_chat_sessions() -> list[ChatSessionSummary]:
 
 
 @app.get("/chat/sessions/{chat_id}", response_model=ChatSession)
-async def get_chat_session(chat_id: str) -> ChatSession:
+async def get_chat_session(chat_id: UUID) -> ChatSession:
     """
     Ottiene i dettagli di una sessione di chat specifica.
 
@@ -261,7 +261,7 @@ async def get_chat_session(chat_id: str) -> ChatSession:
 
 @app.post("/chat/sessions/{chat_id}/messages", response_model=AddMessageResponse)
 async def add_message_to_chat(
-    chat_id: str, request: AddMessageRequest
+    chat_id: UUID, request: AddMessageRequest
 ) -> AddMessageResponse:
     """
     Aggiunge un messaggio a una sessione di chat esistente.
@@ -325,7 +325,7 @@ async def add_message_to_chat(
 
 @app.post("/chat/sessions/{chat_id}/confirm", response_model=MessageResponse)
 async def confirm_pbi_creation(
-    chat_id: str, request: ConfirmPBIRequest
+    chat_id: UUID, request: ConfirmPBIRequest
 ) -> MessageResponse:
     """
     Conferma o rifiuta la creazione dei PBI estratti dalla conversazione.
@@ -415,7 +415,7 @@ async def confirm_pbi_creation(
 
 
 @app.delete("/chat/sessions/{chat_id}", response_model=MessageResponse)
-async def delete_chat_session(chat_id: str) -> MessageResponse:
+async def delete_chat_session(chat_id: UUID) -> MessageResponse:
     """
     Elimina una sessione di chat.
 
@@ -440,7 +440,7 @@ async def delete_chat_session(chat_id: str) -> MessageResponse:
 
 @app.post("/chat/sessions/{chat_id}/process", response_model=MessageResponse)
 async def process_chat_session(
-    chat_id: str, request: ProcessChatRequest
+    chat_id: UUID, request: ProcessChatRequest
 ) -> MessageResponse:
     """
     Analizza la cronologia di una chat per estrarre PBI e progetto Azure DevOps.
@@ -469,7 +469,7 @@ async def process_chat_session(
     # Update status to processing
     chat_manager.update_session_status(chat_id, "processing")
 
-    request_id = str(uuid.uuid4())[:8]
+    request_id = str(uuid4())[:8]
     pbi_extractor = ExtractPBIModule()
     azdo_extractor = ExtractAzdoModule()
     pbi_extractor.set_lm(gemini_service.lm)
