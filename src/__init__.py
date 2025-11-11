@@ -1,4 +1,4 @@
-from . import azdo_client, llm_client, models, server_api, server_mcp
+from . import azdo_client, llm_client, models, server_api
 from .config import settings
 from .extractors import azdo, pbi
 
@@ -13,7 +13,6 @@ __all__ = [
     "llm_client",
     "models",
     "server_api",
-    "server_mcp",
     "settings",
     "azdo",
     "pbi",

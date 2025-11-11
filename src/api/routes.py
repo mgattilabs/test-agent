@@ -102,6 +102,20 @@ async def add_message_to_chat(
     try:
         session, assistant_response = use_case.execute(chat_id, role, request.content)
 
+        # Build confirm_url when the session is ready for confirmation
+        confirm_url: str | None = None
+        try:
+            if (
+                session.awaiting_confirmation
+                or session.status == "ready_for_confirmation"
+                or getattr(session.status, "value", None) == "ready_for_confirmation"
+            ):
+                # Use the API relative path for confirmation
+                confirm_url = f"/chat/sessions/{session.chat_id}/confirm"
+        except Exception:
+            # Be defensive: if session.status doesn't behave as expected, leave confirm_url None
+            confirm_url = None
+
         return AddMessageResponse(
             message=f"Messaggio aggiunto alla chat {chat_id}",
             assistant_response=assistant_response,
@@ -109,6 +123,7 @@ async def add_message_to_chat(
             session_status=session.status.value,
             project=session.project,
             pbi_count=len(session.pbis),
+            confirm_url=confirm_url,
         )
 
     except ValueError as e:

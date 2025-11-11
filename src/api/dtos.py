@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from src.domain.entities import MessageRole
+
 
 class ChatSessionResponse(BaseModel):
     """Response for chat session creation."""
@@ -16,7 +18,7 @@ class ChatSessionResponse(BaseModel):
 class AddMessageRequest(BaseModel):
     """Request to add a message to chat."""
 
-    role: str
+    role: str = MessageRole.USER
     content: str
 
 
@@ -29,6 +31,7 @@ class AddMessageResponse(BaseModel):
     session_status: str = "active"
     project: str | None = None
     pbi_count: int = 0
+    confirm_url: str | None = None
 
 
 class ConfirmPBIRequest(BaseModel):

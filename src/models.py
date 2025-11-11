@@ -13,16 +13,11 @@ class PBI(BaseModel):
 class AgentResponse(BaseModel):
     action: str | None = None
     pbis: list[PBI] | None = None
+    tags: list[str] | None = None
 
 
 class Azdo(BaseModel):
     project: str
-
-
-class ActionResponse:
-    @staticmethod
-    def create_pbi_list() -> str:
-        return "create_pbi_list"
 
 
 class MessageRole(str, Enum):
