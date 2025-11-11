@@ -51,6 +51,80 @@ def _log_request(
     logger.info(f"Request logged: {log_entry}")
 
 
+def _analyze_conversation(chat_id: str) -> tuple[str | None, list[PBI], str]:
+    """
+    Analyze conversation to extract project and PBIs, and determine next action.
+
+    Returns:
+        tuple: (project, pbis, assistant_message)
+    """
+    session = chat_manager.get_session(chat_id)
+    if not session or len(session.messages) == 0:
+        return None, [], "Come posso aiutarti con l'estrazione di PBI?"
+
+    # Get conversation history
+    conversation = chat_manager.get_conversation_history(chat_id)
+
+    # Try to extract project and PBIs
+    request_id = str(uuid.uuid4())[:8]
+    pbi_extractor = ExtractPBIModule()
+    azdo_extractor = ExtractAzdoModule()
+    pbi_extractor.set_lm(gemini_service.lm)
+    azdo_extractor.set_lm(gemini_service.lm)
+
+    try:
+        logger.info(f"[{request_id}] Analyzing conversation for chat {chat_id}")
+        project = azdo_extractor(summary=conversation)
+        pbis = pbi_extractor(summary=conversation)
+
+        logger.info(
+            f"[{request_id}] Extracted project={project}, {len(pbis)} PBIs from chat {chat_id}"
+        )
+
+        # Update session with extracted data
+        chat_manager.update_session_extraction(chat_id, project, pbis)
+
+        # Determine what's missing and generate appropriate response
+        if project is None:
+            chat_manager.update_session_status(chat_id, "needs_info")
+            return (
+                None,
+                [],
+                "Non ho identificato il progetto Azure DevOps. Puoi specificare il nome del progetto?",
+            )
+
+        if len(pbis) == 0:
+            chat_manager.update_session_status(chat_id, "needs_info")
+            return (
+                project,
+                [],
+                f"Ho identificato il progetto '{project}', ma non ho ancora informazioni sufficienti per creare PBI. Puoi descrivere le funzionalità o i requisiti che vuoi implementare?",
+            )
+
+        # We have both project and PBIs - ready for confirmation
+        chat_manager.update_session_status(chat_id, "ready_for_confirmation")
+        session.awaiting_confirmation = True
+
+        pbi_summary = "\n".join([f"{i + 1}. {pbi.title}" for i, pbi in enumerate(pbis)])
+
+        return (
+            project,
+            pbis,
+            f"Perfetto! Ho identificato il progetto '{project}' e ho estratto {len(pbis)} PBI:\n\n{pbi_summary}\n\nVuoi che proceda con la creazione di questi PBI in Azure DevOps? (Usa l'endpoint /chat/sessions/{chat_id}/confirm per confermare)",
+        )
+
+    except Exception as e:
+        logger.error(
+            f"[{request_id}] Error analyzing conversation for chat {chat_id}: {e}",
+            exc_info=True,
+        )
+        return (
+            None,
+            [],
+            "Si è verificato un errore durante l'analisi della conversazione. Puoi fornire più dettagli?",
+        )
+
+
 # Request/Response Models
 class PbiRequest(BaseModel):
     summary: str
@@ -68,6 +142,19 @@ class ChatSessionResponse(BaseModel):
 class AddMessageRequest(BaseModel):
     role: str
     content: str
+
+
+class AddMessageResponse(BaseModel):
+    message: str
+    assistant_response: str | None = None
+    needs_confirmation: bool = False
+    session_status: str = "active"
+    project: str | None = None
+    pbi_count: int = 0
+
+
+class ConfirmPBIRequest(BaseModel):
+    confirm: bool
 
 
 class ProcessChatRequest(BaseModel):
@@ -172,19 +259,21 @@ async def get_chat_session(chat_id: str) -> ChatSession:
     return session
 
 
-@app.post("/chat/sessions/{chat_id}/messages", response_model=MessageResponse)
+@app.post("/chat/sessions/{chat_id}/messages", response_model=AddMessageResponse)
 async def add_message_to_chat(
     chat_id: str, request: AddMessageRequest
-) -> MessageResponse:
+) -> AddMessageResponse:
     """
     Aggiunge un messaggio a una sessione di chat esistente.
+    Se il messaggio è dall'utente, analizza automaticamente la conversazione
+    per estrarre PBI e progetto, e genera una risposta appropriata.
 
     Args:
         chat_id: ID della sessione di chat
         request: Dati del messaggio (role e content)
 
     Returns:
-        Conferma dell'aggiunta del messaggio
+        Risposta con eventuale messaggio dell'assistente e stato della sessione
     """
     try:
         message_role = MessageRole(request.role.lower())
@@ -194,6 +283,7 @@ async def add_message_to_chat(
             detail=f"Ruolo non valido: {request.role}. Usa 'user', 'assistant' o 'system'.",
         )
 
+    # Add the user's message
     message = chat_manager.add_message(chat_id, message_role, request.content)
     if not message:
         logger.warning(f"Chat session not found: {chat_id}")
@@ -202,9 +292,126 @@ async def add_message_to_chat(
         )
 
     logger.info(f"Added message to chat {chat_id} with role {request.role}")
-    return MessageResponse(
-        message=f"Messaggio aggiunto alla chat {chat_id} con ruolo {request.role}"
+
+    # If it's a user message, analyze the conversation and generate assistant response
+    assistant_response = None
+    session = chat_manager.get_session(chat_id)
+
+    if message_role == MessageRole.USER and session:
+        # Analyze conversation
+        project, pbis, assistant_msg = _analyze_conversation(chat_id)
+        assistant_response = assistant_msg
+
+        # Add assistant response to the conversation
+        chat_manager.add_message(chat_id, MessageRole.ASSISTANT, assistant_msg)
+
+        # Get updated session to check status
+        session = chat_manager.get_session(chat_id)
+
+        return AddMessageResponse(
+            message=f"Messaggio aggiunto alla chat {chat_id}",
+            assistant_response=assistant_response,
+            needs_confirmation=session.awaiting_confirmation if session else False,
+            session_status=session.status if session else "active",
+            project=session.project if session else None,
+            pbi_count=len(session.pbis) if session else 0,
+        )
+
+    return AddMessageResponse(
+        message=f"Messaggio aggiunto alla chat {chat_id} con ruolo {request.role}",
+        session_status=session.status if session else "active",
     )
+
+
+@app.post("/chat/sessions/{chat_id}/confirm", response_model=MessageResponse)
+async def confirm_pbi_creation(
+    chat_id: str, request: ConfirmPBIRequest
+) -> MessageResponse:
+    """
+    Conferma o rifiuta la creazione dei PBI estratti dalla conversazione.
+
+    Args:
+        chat_id: ID della sessione di chat
+        request: Richiesta di conferma (confirm: true/false)
+
+    Returns:
+        Risultato della conferma
+    """
+    session = chat_manager.get_session(chat_id)
+    if not session:
+        logger.warning(f"Chat session not found: {chat_id}")
+        raise HTTPException(
+            status_code=404, detail=f"Sessione di chat non trovata: {chat_id}"
+        )
+
+    if not session.awaiting_confirmation:
+        raise HTTPException(
+            status_code=400,
+            detail="Questa sessione non è in attesa di conferma. Aggiungi prima un messaggio con i requisiti.",
+        )
+
+    if not request.confirm:
+        # User rejected - reset status
+        chat_manager.update_session_status(chat_id, "active")
+        session.awaiting_confirmation = False
+        chat_manager.add_message(
+            chat_id,
+            MessageRole.ASSISTANT,
+            "Ok, nessun problema. Puoi modificare o aggiungere ulteriori requisiti.",
+        )
+        logger.info(f"User rejected PBI creation for chat {chat_id}")
+        return MessageResponse(
+            message="Creazione PBI annullata. Puoi continuare a modificare i requisiti."
+        )
+
+    # User confirmed - create PBIs
+    if not session.project or len(session.pbis) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Mancano informazioni per creare i PBI. Progetto o PBI non identificati.",
+        )
+
+    try:
+        # Create PBIs in Azure DevOps
+        azdo_client.add_pbi(
+            pbis=session.pbis,
+            organization=env.azdo_organization,
+            project=session.project,
+        )
+
+        # Update session status
+        chat_manager.update_session_status(chat_id, "completed")
+        session.awaiting_confirmation = False
+
+        # Add confirmation message
+        chat_manager.add_message(
+            chat_id,
+            MessageRole.ASSISTANT,
+            f"Perfetto! Ho creato {len(session.pbis)} PBI nel progetto '{session.project}' in Azure DevOps.",
+        )
+
+        logger.info(
+            f"Successfully created {len(session.pbis)} PBIs for chat {chat_id} in project {session.project}"
+        )
+
+        return MessageResponse(
+            message=f"Creati con successo {len(session.pbis)} PBI nel progetto '{session.project}'."
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error creating PBIs for chat {chat_id}: {e}",
+            exc_info=True,
+        )
+        chat_manager.update_session_status(chat_id, "error")
+        chat_manager.add_message(
+            chat_id,
+            MessageRole.ASSISTANT,
+            "Si è verificato un errore durante la creazione dei PBI. Riprova più tardi.",
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Errore durante la creazione dei PBI: {str(e)}"
+        )
 
 
 @app.delete("/chat/sessions/{chat_id}", response_model=MessageResponse)

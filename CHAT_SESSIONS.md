@@ -7,12 +7,24 @@ Questa funzionalità permette di gestire conversazioni interattive per l'estrazi
 Il sistema supporta la gestione di sessioni di chat in memoria con le seguenti capacità:
 
 - ✅ Creazione di nuove sessioni di chat
-- ✅ Aggiunta di messaggi a sessioni esistenti
+- ✅ **Analisi automatica durante l'aggiunta di messaggi** - Il sistema analizza la conversazione dopo ogni messaggio utente
+- ✅ **Richiesta automatica di informazioni mancanti** - Se manca il progetto o i requisiti, il sistema chiede chiarimenti
+- ✅ **Conferma prima della creazione PBI** - Quando le informazioni sono complete, richiede conferma prima di creare i PBI
 - ✅ Visualizzazione di tutte le sessioni attive
 - ✅ Recupero dettagli di una sessione specifica
 - ✅ Eliminazione di sessioni
-- ✅ Elaborazione di conversazioni per estrarre PBI e progetti
 - ✅ Supporto per conversazioni interattive con domande e risposte
+
+## Workflow Interattivo
+
+Il nuovo workflow è completamente automatico:
+
+1. **Utente aggiunge messaggio** → Sistema analizza automaticamente la conversazione
+2. **Sistema valuta completezza**:
+   - Se manca il progetto → Chiede il nome del progetto
+   - Se mancano requisiti → Chiede di descrivere le funzionalità
+   - Se tutto è presente → Richiede conferma per creare i PBI
+3. **Utente conferma** → PBI creati automaticamente in Azure DevOps
 
 ## Endpoint API Disponibili
 
@@ -33,7 +45,7 @@ curl -X POST http://localhost:8000/chat/sessions
 ```
 
 ### 2. `POST /chat/sessions/{chat_id}/messages`
-Aggiunge un messaggio a una sessione esistente.
+Aggiunge un messaggio a una sessione esistente. **NOVITÀ**: Se il messaggio è dall'utente, il sistema analizza automaticamente la conversazione e genera una risposta dell'assistente.
 
 **Body:**
 ```json
@@ -46,6 +58,18 @@ Aggiunge un messaggio a una sessione esistente.
 **Parametri:**
 - `role`: Ruolo del mittente (`user`, `assistant`, `system`)
 - `content`: Contenuto del messaggio
+
+**Risposta:**
+```json
+{
+  "message": "Messaggio aggiunto alla chat {chat_id}",
+  "assistant_response": "Ho identificato il progetto 'WebApp', ma non ho ancora informazioni sufficienti...",
+  "needs_confirmation": false,
+  "session_status": "needs_info",
+  "project": "WebApp",
+  "pbi_count": 0
+}
+```
 
 **Esempio curl:**
 ```bash
@@ -74,7 +98,48 @@ Recupera i dettagli completi di una sessione specifica, inclusa la cronologia me
 curl http://localhost:8000/chat/sessions/{chat_id}
 ```
 
-### 5. `DELETE /chat/sessions/{chat_id}`
+### 5. `POST /chat/sessions/{chat_id}/confirm` ⭐ NUOVO
+Conferma o rifiuta la creazione dei PBI estratti dalla conversazione. Questo endpoint viene utilizzato quando il sistema ha identificato progetto e PBI e richiede conferma.
+
+**Body:**
+```json
+{
+  "confirm": true
+}
+```
+
+**Parametri:**
+- `confirm`: `true` per confermare e creare i PBI, `false` per annullare
+
+**Risposta (conferma):**
+```json
+{
+  "message": "Creati con successo 3 PBI nel progetto 'WebApp'."
+}
+```
+
+**Risposta (rifiuto):**
+```json
+{
+  "message": "Creazione PBI annullata. Puoi continuare a modificare i requisiti."
+}
+```
+
+**Esempio curl (conferma):**
+```bash
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/confirm \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
+**Esempio curl (rifiuto):**
+```bash
+curl -X POST http://localhost:8000/chat/sessions/{chat_id}/confirm \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": false}'
+```
+
+### 6. `DELETE /chat/sessions/{chat_id}`
 Elimina una sessione di chat.
 
 **Risposta:**
@@ -89,7 +154,7 @@ Elimina una sessione di chat.
 curl -X DELETE http://localhost:8000/chat/sessions/{chat_id}
 ```
 
-### 6. `POST /chat/sessions/{chat_id}/process`
+### 7. `POST /chat/sessions/{chat_id}/process` (Legacy)
 Elabora la cronologia di una chat per estrarre PBI e progetto Azure DevOps.
 
 **Body:**
@@ -116,23 +181,79 @@ curl -X POST http://localhost:8000/chat/sessions/{chat_id}/process \
   -d '{"create_pbis": true}'
 ```
 
-## Flusso di Lavoro Tipico
+## Flusso di Lavoro Tipico (Nuovo Workflow Automatico)
+
+### Esempio Completo di Conversazione
 
 1. **Crea una nuova sessione:**
    ```bash
    curl -X POST http://localhost:8000/chat/sessions
-   # → Restituisce: {"chat_id": "...", "message": "..."}
+   # → Restituisce: {"chat_id": "abc123", "message": "..."}
    ```
 
-2. **Aggiungi messaggi alla conversazione:**
+2. **Primo messaggio utente (manca info progetto):**
    ```bash
-   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+   curl -X POST http://localhost:8000/chat/sessions/abc123/messages \
      -H "Content-Type: application/json" \
-     -d '{"role": "user", "content": "Voglio creare PBI per progetto X"}'
+     -d '{"role": "user", "content": "Voglio creare dei PBI"}'
    
-   curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
+   # Risposta automatica:
+   # {
+   #   "assistant_response": "Non ho identificato il progetto Azure DevOps. Puoi specificare il nome del progetto?",
+   #   "session_status": "needs_info",
+   #   "needs_confirmation": false
+   # }
+   ```
+
+3. **Secondo messaggio utente (mancano requisiti):**
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions/abc123/messages \
      -H "Content-Type: application/json" \
-     -d '{"role": "assistant", "content": "Che funzionalità vuoi implementare?"}'
+     -d '{"role": "user", "content": "Il progetto è WebApp"}'
+   
+   # Risposta automatica:
+   # {
+   #   "assistant_response": "Ho identificato il progetto 'WebApp', ma non ho ancora informazioni sufficienti per creare PBI. Puoi descrivere le funzionalità?",
+   #   "session_status": "needs_info",
+   #   "project": "WebApp",
+   #   "needs_confirmation": false
+   # }
+   ```
+
+4. **Terzo messaggio utente (informazioni complete):**
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions/abc123/messages \
+     -H "Content-Type: application/json" \
+     -d '{"role": "user", "content": "Sistema di login con 2FA, dashboard vendite con grafici, gestione clienti CRUD"}'
+   
+   # Risposta automatica:
+   # {
+   #   "assistant_response": "Perfetto! Ho identificato il progetto 'WebApp' e ho estratto 3 PBI:\n1. Implementare sistema di login con 2FA\n2. Creare dashboard vendite con grafici\n3. Sviluppare gestione clienti CRUD\n\nVuoi che proceda con la creazione?",
+   #   "session_status": "ready_for_confirmation",
+   #   "project": "WebApp",
+   #   "pbi_count": 3,
+   #   "needs_confirmation": true
+   # }
+   ```
+
+5. **Conferma creazione PBI:**
+   ```bash
+   curl -X POST http://localhost:8000/chat/sessions/abc123/confirm \
+     -H "Content-Type: application/json" \
+     -d '{"confirm": true}'
+   
+   # Risposta:
+   # {
+   #   "message": "Creati con successo 3 PBI nel progetto 'WebApp'."
+   # }
+   ```
+
+### Note Importanti
+
+- ⚠️ **Non è più necessario chiamare manualmente** `/process` - l'analisi è automatica
+- ✅ Il sistema **aggiunge automaticamente** le risposte dell'assistente alla conversazione
+- ✅ Il sistema **guida l'utente** chiedendo le informazioni mancanti
+- ✅ La **conferma è richiesta** prima di creare PBI in Azure DevOps
    
    curl -X POST http://localhost:8000/chat/sessions/{chat_id}/messages \
      -H "Content-Type: application/json" \

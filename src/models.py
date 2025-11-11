@@ -48,7 +48,8 @@ class ChatSession(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
     project: str | None = None
     pbis: list[PBI] = Field(default_factory=list)
-    status: str = "active"  # active, processing, completed, error
+    status: str = "active"  # active, needs_info, ready_for_confirmation, confirmed, completed, error
+    awaiting_confirmation: bool = False
 
 
 class ChatSessionSummary(BaseModel):
